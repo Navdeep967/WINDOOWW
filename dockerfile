@@ -26,6 +26,10 @@ ENV ISO_URL="https://archive.org/download/windows-10-lite-edition-19h2-x64/Windo
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
+# Render-specific settings\n\
+MAIN_PORT=${PORT:-6080}  # Use Render-provided PORT or default to 6080\n\
+RDP_PORT=3389\n\
+\n\
 # Check for KVM support (unlikely on Render)\n\
 echo "⚠️  Running in emulation mode - no KVM acceleration available"\n\
 KVM_ARG=""\n\
@@ -54,7 +58,7 @@ fi\n\
 \n\
 echo "⚙️ Starting Windows 10 VM with ${SMP_CORES} CPU cores and ${MEMORY} RAM"\n\
 \n\
-# Start QEMU with Windows-optimized settings\n\
+# Start QEMU\n\
 qemu-system-x86_64 \\\n\
   $KVM_ARG \\\n\
   -machine q35 \\\n\
@@ -66,20 +70,20 @@ qemu-system-x86_64 \\\n\
   $BOOT_ORDER \\\n\
   -drive file=/data/disk.qcow2,format=qcow2 \\\n\
   -drive file=/iso/os.iso,media=cdrom \\\n\
-  -netdev user,id=net0,hostfwd=tcp::3389-:3389 \\\n\
+  -netdev user,id=net0,hostfwd=tcp::${RDP_PORT}-:3389 \\\n\
   -device e1000,netdev=net0 \\\n\
   -display vnc=:0 \\\n\
   -name "Windows10_VM" &\n\
 \n\
-# Start noVNC\n\
+# Start noVNC on Render's assigned port\n\
 sleep 5\n\
-websockify --web /novnc $PORT localhost:5900 &\n\
+echo "🌐 Starting noVNC web interface on port ${MAIN_PORT}"\n\
+websockify --web /novnc ${MAIN_PORT} localhost:5900 &\n\
 \n\
 echo "===================================================="\n\
-echo "🌐 Connect via VNC at the Render URL"\n\
-echo "🔌 After install, use RDP at the Render URL port 3389"\n\
+echo "🌐 VNC will be available on the Render URL"\n\
+echo "🔌 RDP will be available on port ${RDP_PORT}"\n\
 echo "❗ First boot may take 30-40 minutes for Windows install"\n\
-echo "❗ Performance will be slow without KVM acceleration"\n\
 echo "===================================================="\n\
 \n\
 tail -f /dev/null\n' > /start.sh && chmod +x /start.sh
